@@ -12,6 +12,11 @@ from .exceptions import (
     ServerError,
 )
 
+from .resources.projects import Projects
+from .resources.tasks import Tasks
+from .resources.credits import Credits
+from .resources.tags import Tags
+
 
 class CodeVFClient:
     """
@@ -48,6 +53,12 @@ class CodeVFClient:
         self.timeout = timeout
         self.session = requests.Session()
         self._configure_session()
+
+        # Initialize resources
+        self.projects = Projects(self)
+        self.tasks = Tasks(self)
+        self.credits = Credits(self)
+        self.tags = Tags(self)
 
     def _configure_session(self):
         self.session.headers.update({
