@@ -87,16 +87,35 @@ class Tasks:
 
         return self._client.post("tasks/create", data=payload)
 
-    def retrieve(self, task_id: str) -> Any:
+    def retrieve(self, task_id: str) -> Dict[str, Any]:
         """
-        Retrieve a task by ID.
-        
+        Retrieve a task by ID to check its status and results.
+
         Args:
-            task_id: The ID of the task to retrieve.
-        
+            task_id: The unique identifier of the task.
+
         Returns:
-            The task data.
+            A dictionary containing the task data. 
+            The response includes:
+            - 'id': The task ID.
+            - 'status': One of 'pending', 'processing', 'completed', or 'cancelled'.
+            
+            When status is 'completed', it also includes:
+            - 'creditsUsed': Total credits consumed by the task.
+            - 'result': A dictionary containing:
+                - 'message': Summary of the task completion.
+                - 'deliverables': A list of dictionaries, each with:
+                    - 'fileName': Name of the produced file.
+                    - 'url': Link to download the file.
+                    - 'uploadedAt': Timestamp of when the file was uploaded.
+
+        Raises:
+            ValueError: If task_id is empty.
+            APIError: If the API request fails (e.g., 404 Not Found).
         """
+        if not task_id:
+            raise ValueError("task_id must be provided.")
+            
         return self._client.get(f"tasks/{task_id}")
 
     def cancel(self, task_id: str) -> Any:

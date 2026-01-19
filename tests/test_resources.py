@@ -17,12 +17,41 @@ def test_projects_create_with_description(client):
     client.request.assert_called_with("POST", "projects/create", data={"name": "New Project", "description": "My Description"})
 
 def test_tasks_create(client):
-    client.tasks.create({"description": "Task"})
-    client.request.assert_called_with("POST", "tasks/create", data={"description": "Task"})
+    client.tasks.create(prompt="Test prompt", max_credits=10, project_id=1)
+    client.request.assert_called_with("POST", "tasks/create", data={
+        "prompt": "Test prompt",
+        "maxCredits": 10,
+        "projectId": 1,
+        "mode": "standard"
+    })
 
 def test_tasks_retrieve(client):
-    client.tasks.retrieve("123")
-    client.request.assert_called_with("GET", "tasks/123", params=None)
+    task_id = "task_123"
+    mock_response = {
+        "id": task_id,
+        "status": "completed",
+        "creditsUsed": 5,
+        "result": {
+            "message": "Task finished successfully",
+            "deliverables": [
+                {
+                    "fileName": "output.txt",
+                    "url": "https://example.com/output.txt",
+                    "uploadedAt": "2026-01-19T10:00:00Z"
+                }
+            ]
+        }
+    }
+    client.request.return_value = mock_response
+    
+    result = client.tasks.retrieve(task_id)
+    
+    client.request.assert_called_with("GET", f"tasks/{task_id}", params=None)
+    assert result["id"] == task_id
+    assert result["status"] == "completed"
+    assert result["creditsUsed"] == 5
+    assert len(result["result"]["deliverables"]) == 1
+    assert result["result"]["deliverables"][0]["fileName"] == "output.txt"
 
 def test_tasks_cancel(client):
     client.tasks.cancel("123")
