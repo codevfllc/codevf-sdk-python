@@ -31,7 +31,10 @@ class Tasks:
                          - 'mimeType': str
                          - 'base64': str (optional)
                          - 'content': str (optional, for raw text)
-            tag_id: Optional ID indicating engineer expertise level.
+            tag_id: Optional ID indicating engineer expertise level. This affects the final
+                    credit cost according to the formula:
+                    final credits = base credits × SLA multiplier × tag multiplier.
+                    Available tags can be retrieved using client.tags.list().
 
         Returns:
             The created task data containing 'id', 'status', 'mode', 'maxCredits', 'createdAt'.

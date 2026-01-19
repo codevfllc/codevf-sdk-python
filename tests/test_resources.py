@@ -77,5 +77,20 @@ def test_credits_balance(client):
     assert balance_alias == balance
 
 def test_tags_list(client):
-    client.tags.list()
+    mock_tags = [
+        {"id": 1, "name": "standard", "costMultiplier": 1.0},
+        {"id": 2, "name": "expert", "costMultiplier": 1.5}
+    ]
+    
+    # Test with 'data' wrapper
+    client.request.return_value = {"success": True, "data": mock_tags}
+    tags = client.tags.list()
     client.request.assert_called_with("GET", "tags", params=None)
+    assert len(tags) == 2
+    assert tags[0]["name"] == "standard"
+    
+    # Test without 'data' wrapper (fallback)
+    client.request.return_value = mock_tags
+    tags = client.tags.list()
+    assert len(tags) == 2
+    assert tags[1]["name"] == "expert"
