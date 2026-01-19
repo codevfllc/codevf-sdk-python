@@ -9,8 +9,12 @@ def client():
     return c
 
 def test_projects_create(client):
-    client.projects.create({"name": "New Project"})
+    client.projects.create(name="New Project")
     client.request.assert_called_with("POST", "projects/create", data={"name": "New Project"})
+
+def test_projects_create_with_description(client):
+    client.projects.create(name="New Project", description="My Description")
+    client.request.assert_called_with("POST", "projects/create", data={"name": "New Project", "description": "My Description"})
 
 def test_tasks_create(client):
     client.tasks.create({"description": "Task"})
