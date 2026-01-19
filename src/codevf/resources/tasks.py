@@ -118,7 +118,7 @@ class Tasks:
             
         return self._client.get(f"tasks/{task_id}")
 
-    def cancel(self, task_id: str) -> Any:
+    def cancel(self, task_id: str) -> Dict[str, Any]:
         """
         Cancel a task by ID.
         
@@ -126,6 +126,18 @@ class Tasks:
             task_id: The ID of the task to cancel.
         
         Returns:
-            The result of the cancellation request.
+            A dictionary containing the cancellation confirmation.
+            Example:
+            {
+                "message": "Task cancelled successfully.",
+                "creditsReturned": 12
+            }
+            
+        Raises:
+            ValueError: If task_id is empty.
+            APIError: If the cancellation fails.
         """
+        if not task_id:
+            raise ValueError("task_id must be provided.")
+            
         return self._client.post(f"tasks/{task_id}/cancel")
