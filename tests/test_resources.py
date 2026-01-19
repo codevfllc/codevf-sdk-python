@@ -58,8 +58,23 @@ def test_tasks_cancel(client):
     client.request.assert_called_with("POST", "tasks/123/cancel", data=None)
 
 def test_credits_balance(client):
-    client.credits.retrieve_balance()
+    mock_balance = {
+        "available": 100.5,
+        "onHold": 50.0,
+        "total": 150.5
+    }
+    client.request.return_value = mock_balance
+    
+    # Test get_balance
+    balance = client.credits.get_balance()
     client.request.assert_called_with("GET", "credits/balance", params=None)
+    assert balance["available"] == 100.5
+    assert balance["onHold"] == 50.0
+    assert balance["total"] == 150.5
+
+    # Test retrieve_balance (alias)
+    balance_alias = client.credits.retrieve_balance()
+    assert balance_alias == balance
 
 def test_tags_list(client):
     client.tags.list()

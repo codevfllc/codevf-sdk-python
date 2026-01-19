@@ -29,7 +29,14 @@ try:
     print(response)
     
 except APIError as e:
-    print(f"Error: {e}")
+### Credits
+
+Check your current credit balance:
+
+```python
+balance = client.credits.get_balance()
+print(f"Available credits: {balance['available']}")
+print(f"Total credits: {balance['total']}")
 ```
 
 ## Features
