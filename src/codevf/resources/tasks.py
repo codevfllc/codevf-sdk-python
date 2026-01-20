@@ -1,7 +1,7 @@
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, cast
 
 class Tasks:
-    def __init__(self, client):
+    def __init__(self, client: Any) -> None:
         self._client = client
 
     def create(
@@ -13,7 +13,6 @@ class Tasks:
         metadata: Optional[Dict[str, Any]] = None,
         idempotency_key: Optional[str] = None,
         attachments: Optional[List[Dict[str, Any]]] = None,
-        tag_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Create a new task.
@@ -25,16 +24,13 @@ class Tasks:
             mode: Task mode ('realtime_answer', 'fast', 'standard'). Defaults to 'standard'.
             metadata: Optional dictionary for user reference.
             idempotency_key: Optional UUID string to ensure idempotency.
-            attachments: Optional list of file attachments (max 5).
+            attachments: Optional[List[Dict[str, Any]]] = None,
+                         Optional list of file attachments (max 5).
                          Each attachment must be a dict with:
-                         - 'fileName': str
-                         - 'mimeType': str
-                         - 'base64': str (optional)
-                         - 'content': str (optional, for raw text)
-            tag_id: Optional ID indicating engineer expertise level. This affects the final
-                    credit cost according to the formula:
-                    final credits = base credits × SLA multiplier × tag multiplier.
-                    Available tags can be retrieved using client.tags.list().
+                         - 'fileName': str: Name of the file.
+                         - 'mimeType': str: MIME type of the file.
+                         - 'content': str: Base64 for binary files or raw text for code/logs.
+                         - 'base64': str: Alias for 'content' (normalized to 'content' before sending).
 
         Returns:
             The created task data containing 'id', 'status', 'mode', 'maxCredits', 'createdAt'.
@@ -57,6 +53,7 @@ class Tasks:
             raise ValueError(f"Invalid mode '{mode}'. Must be one of {valid_modes}.")
 
         # Validate attachments
+        normalized_attachments = []
         if attachments:
             if len(attachments) > 5:
                 raise ValueError("Maximum of 5 attachments allowed.")
@@ -66,8 +63,20 @@ class Tasks:
                     raise ValueError(f"Attachment at index {i} must be a dictionary.")
                 if "fileName" not in att or "mimeType" not in att:
                     raise ValueError(f"Attachment at index {i} missing required fields 'fileName' or 'mimeType'.")
-                if "base64" not in att and "content" not in att:
-                    raise ValueError(f"Attachment at index {i} must provide either 'base64' or 'content'.")
+                
+                # Normalize base64/content to content
+                new_att = att.copy()
+                if "base64" in new_att:
+                    if "content" not in new_att:
+                        new_att["content"] = new_att.pop("base64")
+                    else:
+                        # If both are present, prefer content and remove base64
+                        new_att.pop("base64")
+                
+                if "content" not in new_att:
+                    raise ValueError(f"Attachment at index {i} must provide 'content' (or 'base64').")
+                
+                normalized_attachments.append(new_att)
 
         payload = {
             "prompt": prompt,
@@ -82,13 +91,10 @@ class Tasks:
         if idempotency_key is not None:
             payload["idempotencyKey"] = idempotency_key
             
-        if attachments is not None:
-            payload["attachments"] = attachments
-            
-        if tag_id is not None:
-            payload["tagId"] = tag_id
+        if normalized_attachments:
+            payload["attachments"] = normalized_attachments
 
-        return self._client.post("tasks/create", data=payload)
+        return cast(Dict[str, Any], self._client.post("tasks/create", data=payload))
 
     def retrieve(self, task_id: str) -> Dict[str, Any]:
         """
@@ -119,7 +125,7 @@ class Tasks:
         if not task_id:
             raise ValueError("task_id must be provided.")
             
-        return self._client.get(f"tasks/{task_id}")
+        return cast(Dict[str, Any], self._client.get(f"tasks/{task_id}"))
 
     def cancel(self, task_id: str) -> Dict[str, Any]:
         """
@@ -143,4 +149,4 @@ class Tasks:
         if not task_id:
             raise ValueError("task_id must be provided.")
             
-        return self._client.post(f"tasks/{task_id}/cancel")
+        return cast(Dict[str, Any], self._client.post(f"tasks/{task_id}/cancel"))

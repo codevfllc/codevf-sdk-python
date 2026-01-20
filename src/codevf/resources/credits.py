@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, cast
 
 class Credits:
     def __init__(self, client: Any) -> None:
@@ -17,13 +17,4 @@ class Credits:
         Raises:
             APIError: If the API request fails.
         """
-        return self._client.get("credits/balance")
-
-    def retrieve_balance(self) -> Dict[str, Any]:
-        """
-        Retrieve the current credit balance. Alias for get_balance().
-        
-        Returns:
-            The credit balance information.
-        """
-        return self.get_balance()
+        return cast(Dict[str, Any], self._client.get("credits/balance"))
