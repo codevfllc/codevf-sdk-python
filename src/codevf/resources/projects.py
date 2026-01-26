@@ -1,22 +1,22 @@
-from typing import Dict, Any, Optional, cast
+from typing import Any, Dict, Optional, cast
+
+from ..models.project import Project
+
 
 class Projects:
     def __init__(self, client: Any) -> None:
         self._client = client
 
-    def create(self, name: str, description: Optional[str] = None) -> Dict[str, Any]:
+    def create(self, name: str, description: Optional[str] = None) -> Project:
         """
-        Create a new project.
+        Create or reuse a project with the given name.
 
-        Args:
-            name: The name of the project (required, unique per user).
-            description: An optional description for the project.
-
-        Returns:
-            The created project data containing 'id', 'name', and 'createdAt'.
+        The API will return an existing project if one with the same name already exists,
+        so calling `create` repeatedly is idempotent from the caller's perspective.
         """
-        payload = {"name": name}
+        payload: Dict[str, Any] = {"name": name}
         if description is not None:
             payload["description"] = description
-            
-        return cast(Dict[str, Any], self._client.post("projects/create", data=payload))
+
+        response = cast(Dict[str, Any], self._client.post("projects/create", data=payload))
+        return Project.from_payload(response)

@@ -1,97 +1,141 @@
 import pytest
 from unittest.mock import MagicMock
+
 from codevf import CodeVFClient
+from codevf.models.credit import CreditBalance
+from codevf.models.task import TaskResponse
+
 
 @pytest.fixture
 def client() -> CodeVFClient:
     c = CodeVFClient(api_key="test")
-    # We use type: ignore because mypy strict mode doesn't like assigning to methods,
-    # but this is a standard pattern for mocking in tests.
-    c.request = MagicMock(return_value={"ok": True})  # type: ignore[method-assign]
+    c.post = MagicMock()
+    c.get = MagicMock()
     return c
 
+
 def test_projects_create(client: CodeVFClient) -> None:
-    client.projects.create(name="New Project")
-    client.request.assert_called_with("POST", "projects/create", data={"name": "New Project"})  # type: ignore[attr-defined]
+    client.post.return_value = {"id": 42, "name": "New Project", "createdAt": "2026-01-01T00:00:00Z"}
+    project = client.projects.create(name="New Project")
+    client.post.assert_called_with("projects/create", data={"name": "New Project"})
+    assert project.id == 42
+    assert project.name == "New Project"
+
 
 def test_projects_create_with_description(client: CodeVFClient) -> None:
-    client.projects.create(name="New Project", description="My Description")
-    client.request.assert_called_with("POST", "projects/create", data={"name": "New Project", "description": "My Description"})  # type: ignore[attr-defined]
+    client.post.return_value = {
+        "id": 43,
+        "name": "New Project",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "description": "My Description",
+    }
+    project = client.projects.create(name="New Project", description="My Description")
+    client.post.assert_called_with("projects/create", data={"name": "New Project", "description": "My Description"})
+    assert project.description == "My Description"
+
 
 def test_tasks_create(client: CodeVFClient) -> None:
-    client.tasks.create(prompt="Test prompt", max_credits=10, project_id=1)
-    client.request.assert_called_with("POST", "tasks/create", data={  # type: ignore[attr-defined]
-        "prompt": "Test prompt",
-        "maxCredits": 10,
-        "projectId": 1,
-        "mode": "standard"
-    })
+    client.post.return_value = {
+        "id": "task_123",
+        "status": "pending",
+        "mode": "standard",
+        "maxCredits": 20,
+        "createdAt": "2026-01-01T00:00:00Z",
+    }
+
+    task = client.tasks.create(prompt="Test prompt", max_credits=20, project_id=1)
+
+    client.post.assert_called_with(
+        "tasks/create",
+        data={"prompt": "Test prompt", "maxCredits": 20, "projectId": 1, "mode": "standard"},
+    )
+    assert isinstance(task, TaskResponse)
+    assert task.mode.value == "standard"
+
 
 def test_tasks_create_with_attachments(client: CodeVFClient) -> None:
+    client.post.return_value = {
+        "id": "task_456",
+        "status": "pending",
+        "mode": "standard",
+        "maxCredits": 50,
+        "createdAt": "2026-01-01T00:00:00Z",
+    }
+
     attachments = [
         {"fileName": "file1.txt", "mimeType": "text/plain", "content": "hello"},
-        {"fileName": "file2.png", "mimeType": "image/png", "base64": "SGVsbG8="}
+        {"fileName": "file2.png", "mimeType": "image/png", "base64": "SGVsbG8="},
     ]
-    client.tasks.create(
-        prompt="Test with attachments",
-        max_credits=20,
-        project_id=1,
-        attachments=attachments
+    client.tasks.create(prompt="Review attachments", max_credits=40, project_id=2, attachments=attachments)
+
+    client.post.assert_called_with(
+        "tasks/create",
+        data={
+            "prompt": "Review attachments",
+            "maxCredits": 40,
+            "projectId": 2,
+            "mode": "standard",
+            "attachments": [
+                {"fileName": "file1.txt", "mimeType": "text/plain", "content": "hello"},
+                {"fileName": "file2.png", "mimeType": "image/png", "content": "SGVsbG8="},
+            ],
+        },
     )
-    client.request.assert_called_with("POST", "tasks/create", data={  # type: ignore[attr-defined]
-        "prompt": "Test with attachments",
-        "maxCredits": 20,
-        "projectId": 1,
-        "mode": "standard",
-        "attachments": [
-            {"fileName": "file1.txt", "mimeType": "text/plain", "content": "hello"},
-            {"fileName": "file2.png", "mimeType": "image/png", "content": "SGVsbG8="}
-        ]
-    })
+
 
 def test_tasks_retrieve(client: CodeVFClient) -> None:
-    task_id = "task_123"
-    mock_response = {
+    task_id = "task_789"
+    client.get.return_value = {
         "id": task_id,
         "status": "completed",
-        "creditsUsed": 5,
-        "result": {
-            "message": "Task finished successfully",
-            "deliverables": [
-                {
-                    "fileName": "output.txt",
-                    "url": "https://example.com/output.txt",
-                    "uploadedAt": "2026-01-19T10:00:00Z"
-                }
-            ]
-        }
+        "mode": "fast",
+        "maxCredits": 30,
+        "createdAt": "2026-01-01T00:00:00Z",
+        "creditsUsed": 35,
+        "result": {"message": "Done", "deliverables": []},
     }
-    client.request.return_value = mock_response  # type: ignore[attr-defined]
-    
-    result = client.tasks.retrieve(task_id)
-    
-    client.request.assert_called_with("GET", f"tasks/{task_id}", params=None)  # type: ignore[attr-defined]
-    assert result["id"] == task_id
-    assert result["status"] == "completed"
-    assert result["creditsUsed"] == 5
-    assert len(result["result"]["deliverables"]) == 1
-    assert result["result"]["deliverables"][0]["fileName"] == "output.txt"
+
+    task = client.tasks.retrieve(task_id)
+
+    client.get.assert_called_with(f"tasks/{task_id}")
+    assert isinstance(task, TaskResponse)
+    assert task.status == "completed"
+    assert task.credits_used == 35
+
 
 def test_tasks_cancel(client: CodeVFClient) -> None:
-    client.tasks.cancel("123")
-    client.request.assert_called_with("POST", "tasks/123/cancel", data=None)  # type: ignore[attr-defined]
+    client.tasks.cancel("task_999")
+    client.post.assert_called_with("tasks/task_999/cancel")
+
 
 def test_credits_balance(client: CodeVFClient) -> None:
-    mock_balance = {
-        "available": 100.5,
-        "onHold": 50.0,
-        "total": 150.5
-    }
-    client.request.return_value = mock_balance  # type: ignore[attr-defined]
-    
-    # Test get_balance
+    client.get.return_value = {"available": 100.5, "onHold": 25.0, "total": 125.5}
     balance = client.credits.get_balance()
-    client.request.assert_called_with("GET", "credits/balance", params=None)  # type: ignore[attr-defined]
-    assert balance["available"] == 100.5
-    assert balance["onHold"] == 50.0
-    assert balance["total"] == 150.5
+
+    client.get.assert_called_with("credits/balance")
+    assert isinstance(balance, CreditBalance)
+    assert balance.available == 100.5
+    assert balance.on_hold == 25.0
+
+
+def test_tags_list(client: CodeVFClient) -> None:
+    client.get.return_value = {
+        "success": True,
+        "tags": [
+            {
+                "id": 1,
+                "name": "engineer",
+                "displayName": "Engineer",
+                "description": None,
+                "costMultiplier": "1.7",
+                "isActive": True,
+                "sortOrder": 1,
+            }
+        ],
+    }
+
+    tags = client.tags.list()
+
+    client.get.assert_called_with("tags")
+    assert len(tags) == 1
+    assert tags[0].display_name == "Engineer"
