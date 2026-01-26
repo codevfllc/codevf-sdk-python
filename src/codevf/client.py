@@ -1,8 +1,9 @@
-import os
 import logging
-import requests
-from typing import Optional, Any, Dict
+import os
+from typing import Any, Dict, Mapping, Optional
 from urllib.parse import urljoin
+
+import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -11,16 +12,40 @@ from .exceptions import (
     APIConnectionError,
     APIError,
     AuthenticationError,
+    AttachmentLimitExceededError,
+    AttachmentTooLargeError,
+    BadRequestError,
+    IdempotencyConflictError,
+    InsufficientCreditsError,
+    InvalidMetadataError,
+    InvalidModeError,
+    InvalidTagError,
+    MaxCreditsExceededError,
     NotFoundError,
+    PayloadTooLargeError,
     RateLimitError,
     ServerError,
 )
 
-from .resources.projects import Projects
-from .resources.tasks import Tasks
 from .resources.credits import Credits
+from .resources.projects import Projects
+from .resources.tags import Tags
+from .resources.tasks import Tasks
 
 logger = logging.getLogger(__name__)
+
+ERROR_CODE_EXCEPTION_MAP: Mapping[str, type[APIError]] = {
+    "invalid_mode": InvalidModeError,
+    "invalid_tag": InvalidTagError,
+    "invalid_metadata": InvalidMetadataError,
+    "max_credits_exceeded": MaxCreditsExceededError,
+    "attachment_limit_exceeded": AttachmentLimitExceededError,
+    "attachment_too_large": AttachmentTooLargeError,
+    "idempotency_conflict": IdempotencyConflictError,
+    "insufficient_credits": InsufficientCreditsError,
+    "token_expired": AuthenticationError,
+    "rate_limit_exceeded": RateLimitError,
+}
 
 
 class CodeVFClient:
@@ -65,6 +90,7 @@ class CodeVFClient:
         self.projects = Projects(self)
         self.tasks = Tasks(self)
         self.credits = Credits(self)
+        self.tags = Tags(self)
 
     def _configure_session(self, max_retries: int) -> None:
         self.session.headers.update({
@@ -85,7 +111,6 @@ class CodeVFClient:
 
     def _handle_response(self, response: requests.Response) -> Any:
         try:
-            # Attempt to parse JSON, but fall back to text if empty or invalid
             data = response.json() if response.content else None
         except ValueError:
             data = response.text
@@ -95,20 +120,62 @@ class CodeVFClient:
         if 200 <= response.status_code < 300:
             return data
 
-        error_msg = f"API request failed with status {response.status_code}"
-        if isinstance(data, dict) and "message" in data:
-            error_msg = data["message"]
+        message, code, status = self._extract_error_payload(data, response.status_code)
+        exc_class = self._resolve_exception_class(status, code)
+        raise exc_class(message, status, data)
 
-        if response.status_code == 401 or response.status_code == 403:
-            raise AuthenticationError(error_msg, response.status_code, data)
-        elif response.status_code == 404:
-            raise NotFoundError(error_msg, response.status_code, data)
-        elif response.status_code == 429:
-            raise RateLimitError(error_msg, response.status_code, data)
-        elif 500 <= response.status_code < 600:
-            raise ServerError(error_msg, response.status_code, data)
+    @staticmethod
+    def _extract_error_payload(data: Any, fallback_status: int) -> tuple[str, Optional[str], int]:
+        message = f"API request failed with status {fallback_status}"
+        error_code: Optional[str] = None
+        status = fallback_status
+
+        if isinstance(data, dict):
+            error_value = data.get("error")
+            if isinstance(error_value, dict):
+                error_code = error_value.get("code")
+                message = error_value.get("message", message)
+                status = error_value.get("status", fallback_status) or fallback_status
+
+            elif isinstance(error_value, str):
+                message = error_value
+                status = data.get("status", fallback_status) or fallback_status
+
+            elif "message" in data:
+                message = data["message"]
+
+        elif isinstance(data, str) and data:
+            message = data
+
+        try:
+            status = int(status)
+        except (TypeError, ValueError):
+            status = fallback_status
+
+        return message, error_code, status
+
+    @staticmethod
+    def _resolve_exception_class(status_code: int, error_code: Optional[str]) -> type[APIError]:
+        normalized_error = (error_code or "").lower()
+
+        if status_code in (401, 403):
+            return AuthenticationError
+        if status_code == 404:
+            return NotFoundError
+        if status_code == 429:
+            return RateLimitError
+        if status_code == 413:
+            return PayloadTooLargeError
+        if 500 <= status_code < 600:
+            return ServerError
+
+        base_exception: type[APIError]
+        if status_code == 400:
+            base_exception = BadRequestError
         else:
-            raise APIError(error_msg, response.status_code, data)
+            base_exception = APIError
+
+        return ERROR_CODE_EXCEPTION_MAP.get(normalized_error, base_exception)
 
     def request(
         self,

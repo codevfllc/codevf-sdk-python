@@ -1,20 +1,18 @@
-from typing import Dict, Any, cast
+from typing import Any, Dict, cast
+
+from ..models.credit import CreditBalance
+
 
 class Credits:
     def __init__(self, client: Any) -> None:
         self._client = client
 
-    def get_balance(self) -> Dict[str, Any]:
+    def get_balance(self) -> CreditBalance:
         """
         Retrieve the current credit balance.
-        
-        Returns:
-            A dictionary containing:
-                - 'available' (float): Credits available for use.
-                - 'onHold' (float): Credits currently held for active tasks.
-                - 'total' (float): Total credits (available + onHold).
 
-        Raises:
-            APIError: If the API request fails.
+        Returns:
+            A `CreditBalance` with available, on_hold, and total credits.
         """
-        return cast(Dict[str, Any], self._client.get("credits/balance"))
+        response = cast(Dict[str, Any], self._client.get("credits/balance"))
+        return CreditBalance.from_payload(response)
