@@ -39,15 +39,15 @@ def test_tasks_create(client: CodeVFClient) -> None:
         "id": "task_123",
         "status": "pending",
         "mode": "standard",
-        "maxCredits": 20,
+        "maxCredits": 240,
         "createdAt": "2026-01-01T00:00:00Z",
     }
 
-    task = client.tasks.create(prompt="Test prompt", max_credits=20, project_id=1)
+    task = client.tasks.create(prompt="Test prompt", max_credits=240, project_id=1)
 
     client.post.assert_called_with(
         "tasks/create",
-        data={"prompt": "Test prompt", "maxCredits": 20, "projectId": 1, "mode": "standard"},
+        data={"prompt": "Test prompt", "maxCredits": 240, "projectId": 1, "mode": "standard"},
     )
     assert isinstance(task, TaskResponse)
     assert task.mode.value == "standard"
@@ -58,7 +58,7 @@ def test_tasks_create_with_attachments(client: CodeVFClient) -> None:
         "id": "task_456",
         "status": "pending",
         "mode": "standard",
-        "maxCredits": 50,
+        "maxCredits": 240,
         "createdAt": "2026-01-01T00:00:00Z",
     }
 
@@ -66,13 +66,13 @@ def test_tasks_create_with_attachments(client: CodeVFClient) -> None:
         {"fileName": "file1.txt", "mimeType": "text/plain", "content": "hello"},
         {"fileName": "file2.png", "mimeType": "image/png", "base64": "SGVsbG8="},
     ]
-    client.tasks.create(prompt="Review attachments", max_credits=40, project_id=2, attachments=attachments)
+    client.tasks.create(prompt="Review attachments", max_credits=240, project_id=2, attachments=attachments)
 
     client.post.assert_called_with(
         "tasks/create",
         data={
             "prompt": "Review attachments",
-            "maxCredits": 40,
+            "maxCredits": 240,
             "projectId": 2,
             "mode": "standard",
             "attachments": [
@@ -89,7 +89,7 @@ def test_tasks_retrieve(client: CodeVFClient) -> None:
         "id": task_id,
         "status": "completed",
         "mode": "fast",
-        "maxCredits": 30,
+        "maxCredits": 240,
         "createdAt": "2026-01-01T00:00:00Z",
         "creditsUsed": 35,
         "result": {"message": "Done", "deliverables": []},

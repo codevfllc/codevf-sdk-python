@@ -11,6 +11,45 @@ from ..exceptions import AttachmentTooLargeError
 MAX_TEXT_BYTES = 1_048_576
 MAX_BINARY_BYTES = 10_485_760
 ATTACHMENT_LIMIT = 5
+EXTRA_TEXT_MIME_TYPES = (
+    "application/json",
+    "application/xml",
+    "application/yaml",
+    "application/x-yaml",
+    "text/markdown",
+)
+TEXT_OR_CODE_EXTENSIONS = (
+    "txt",
+    "json",
+    "xml",
+    "csv",
+    "log",
+    "md",
+    "yaml",
+    "yml",
+    "py",
+    "js",
+    "ts",
+    "java",
+    "cpp",
+    "c",
+    "cs",
+    "go",
+    "rs",
+    "kt",
+    "swift",
+    "php",
+    "rb",
+    "jsx",
+    "tsx",
+    "html",
+    "css",
+    "scss",
+    "sql",
+    "sh",
+    "bat",
+    "ps1",
+)
 
 
 @dataclass(frozen=True)
@@ -46,15 +85,15 @@ PDF_CATEGORY = AttachmentCategory(
     requires_base64=True,
 )
 
-CODE_CATEGORY = AttachmentCategory(
-    name="code",
-    extensions=("py", "js", "ts", "java", "cpp", "c", "cs", "go", "rs", "kt", "swift", "php", "rb", "jsx", "tsx"),
+TEXT_CATEGORY = AttachmentCategory(
+    name="text",
+    extensions=TEXT_OR_CODE_EXTENSIONS,
     mime_types=(
+        "text/plain",
         "text/x-python",
         "application/javascript",
         "text/typescript",
         "text/x-java-source",
-        "text/plain",
         "application/x-c++src",
         "text/x-csrc",
         "text/x-csharp",
@@ -63,15 +102,12 @@ CODE_CATEGORY = AttachmentCategory(
         "text/x-kotlin",
         "text/x-php",
         "text/x-ruby",
-    ),
-    max_bytes=MAX_TEXT_BYTES,
-    requires_base64=False,
-)
-
-TEXT_CATEGORY = AttachmentCategory(
-    name="text",
-    extensions=("txt", "json", "xml", "csv", "log"),
-    mime_types=("text/plain", "application/json", "text/xml", "application/xml", "text/csv"),
+        "text/html",
+        "text/css",
+        "text/x-sql",
+        "text/csv",
+    )
+    + EXTRA_TEXT_MIME_TYPES,
     max_bytes=MAX_TEXT_BYTES,
     requires_base64=False,
 )
@@ -79,8 +115,6 @@ TEXT_CATEGORY = AttachmentCategory(
 ALL_CATEGORIES: Tuple[AttachmentCategory, ...] = (
     IMAGE_CATEGORY,
     PDF_CATEGORY,
-    CODE_CATEGORY,
-    TEXT_CATEGORY,
 )
 
 
@@ -127,7 +161,9 @@ class Attachment:
         lower_name = file_name.lower()
         if lower_name.endswith(".pdf"):
             return PDF_CATEGORY
-        if lower_name.endswith(".txt") or lower_name.endswith(".log"):
+        if mime_type.startswith("text/") or mime_type in EXTRA_TEXT_MIME_TYPES:
+            return TEXT_CATEGORY
+        if any(lower_name.endswith(f".{ext}") for ext in TEXT_OR_CODE_EXTENSIONS):
             return TEXT_CATEGORY
         raise AttachmentTooLargeError(
             f"Unsupported attachment type: '{file_name}' ({mime_type})."
@@ -137,7 +173,11 @@ class Attachment:
     def _calculate_bytes(content: str, requires_base64: bool) -> int:
         if requires_base64:
             cleaned = re.sub(r"\s+", "", content)
-            return len(cleaned.encode("utf-8"))
+            try:
+                decoded = base64.b64decode(cleaned, validate=True)
+            except (ValueError, binascii.Error):
+                return MAX_BINARY_BYTES + 1
+            return len(decoded)
         return len(content.encode("utf-8"))
 
     def _validate_content(self) -> None:
@@ -149,7 +189,7 @@ class Attachment:
 
         if self.category.requires_base64:
             try:
-                base64.b64decode(self.content, validate=True)
+                base64.b64decode(re.sub(r"\s+", "", self.content), validate=True)
             except (ValueError, binascii.Error):
                 raise AttachmentTooLargeError(
                     f"{self.file_name} must be valid base64 when uploading {self.category.name} files."

@@ -57,7 +57,7 @@ project = client.projects.create(
 # 2. Submit a task for review
 task = client.tasks.create(
     prompt="Check this code for security vulnerabilities.",
-    max_credits=50,
+    max_credits=240,
     project_id=project.id,
     mode=ServiceMode.FAST,          # Optional: defaults to STANDARD
     # metadata={"env": "prod"},     # Optional: custom tags
@@ -73,20 +73,20 @@ print(f"Status: {current_task.status}")
 
 ## Features
 
-- **Project Management** – Create and organize reusable projects.
-- **Task Submission** – Submit prompts with code files and instructions for human engineers.
-- **Credit System** – Monitor your available budget.
-- **Engineer Expertise** – Choose expertise levels (Tags) to match the task difficulty.
-- **Attachments** – Upload files, logs, or screenshots.
-- **Error Handling** – Typed exceptions for easy debugging and retries.
+- **Project Management** - Create and organize reusable projects.
+- **Task Submission** - Submit prompts with code files and instructions for human engineers.
+- **Credit System** - Monitor your available budget.
+- **Engineer Expertise** - Choose expertise levels (Tags) to match the task difficulty.
+- **Attachments** - Upload files, logs, or screenshots.
+- **Error Handling** - Typed exceptions for easy debugging and retries.
 
 ## Architecture
 
 The SDK mirrors the API surface:
 
-- **Core** — `CodeVFClient` handles authentication and requests.
-- **Resources** — `client.projects`, `client.tasks`, `client.credits`, etc.
-- **Models** — Typed objects like `Project`, `TaskResponse`, `CreditBalance`.
+- **Core** - `CodeVFClient` handles authentication and requests.
+- **Resources** - `client.projects`, `client.tasks`, `client.credits`, etc.
+- **Models** - Typed objects like `Project`, `TaskResponse`, `CreditBalance`.
 
 ## API Reference
 
@@ -103,7 +103,7 @@ project = client.projects.create(name="My Project")
 # Submit a task
 client.tasks.create(
     prompt="Refactor this function",
-    max_credits=20,
+    max_credits=240,
     project_id=123
 )
 
@@ -127,6 +127,21 @@ client.credits.get_balance()
 # List available expertise levels
 client.tags.list()
 ```
+
+## Task Credits and Modes
+
+- `realtime_answer`: 60-600 credits, 2x multiplier
+- `fast`: 240-115200 credits, 1.5x multiplier
+- `standard`: 240-115200 credits, 1x multiplier
+
+The SDK validates these ranges client-side.
+
+## Attachments
+
+- Max 5 attachments per task
+- Images (PNG/JPG/GIF/WebP): up to 10MB, base64-encoded
+- PDFs: up to 10MB, base64-encoded
+- Source code and text files (PY/JS/JSON/MD/etc.): up to 1MB, raw text
 
 ## Error Handling
 
@@ -158,4 +173,4 @@ pytest
 
 ## License
 
-MIT — see the [LICENSE](LICENSE) file for details.
+MIT - see the [LICENSE](LICENSE) file for details.
