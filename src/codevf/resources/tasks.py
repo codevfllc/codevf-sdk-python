@@ -16,9 +16,15 @@ from ..utils.metadata import validate_metadata
 
 PROMPT_MIN_LENGTH = 10
 PROMPT_MAX_LENGTH = 10_000
-MIN_CREDITS = 1
-MAX_CREDITS = 1920
+MIN_CREDITS = 60
+MAX_CREDITS = 115_200
 MAX_ATTACHMENTS = 5
+REALTIME_MIN_CREDITS = 60
+REALTIME_MAX_CREDITS = 600
+FAST_MIN_CREDITS = 240
+FAST_MAX_CREDITS = 115_200
+STANDARD_MIN_CREDITS = 240
+STANDARD_MAX_CREDITS = 115_200
 
 
 class Tasks:
@@ -42,7 +48,7 @@ class Tasks:
 
         Args:
             prompt: A descriptive request between 10 and 10,000 characters.
-            max_credits: The upper bound on credits to spend (1-1,920).
+            max_credits: The upper bound on credits to spend (60-115,200).
             project_id: The integer ID returned from `Projects.create`.
             mode: Service level: realtime_answer, fast, or standard.
             metadata: Flat metadata dictionary for future filtering.
@@ -54,8 +60,8 @@ class Tasks:
             A `TaskResponse` wrapping the server payload.
         """
         self._validate_prompt(prompt)
-        self._validate_max_credits(max_credits)
         mode_enum = self._resolve_mode(mode)
+        self._validate_max_credits(max_credits, mode_enum)
 
         normalized_meta = validate_metadata(metadata)
 
@@ -111,12 +117,24 @@ class Tasks:
         if length < PROMPT_MIN_LENGTH or length > PROMPT_MAX_LENGTH:
             raise ValueError("prompt must be between 10 and 10,000 characters.")
 
-    def _validate_max_credits(self, max_credits: int) -> None:
+    def _validate_max_credits(self, max_credits: int, mode: ServiceMode) -> None:
         if max_credits < MIN_CREDITS or max_credits > MAX_CREDITS:
-            raise ValueError("max_credits must be between 1 and 1,920.")
+            raise ValueError("max_credits must be between 60 and 115,200.")
+
+        if mode is ServiceMode.REALTIME_ANSWER:
+            if max_credits < REALTIME_MIN_CREDITS or max_credits > REALTIME_MAX_CREDITS:
+                raise ValueError("max_credits must be between 60 and 600 for realtime_answer.")
+        elif mode is ServiceMode.FAST:
+            if max_credits < FAST_MIN_CREDITS or max_credits > FAST_MAX_CREDITS:
+                raise ValueError("max_credits must be between 240 and 115,200 for fast.")
+        else:
+            if max_credits < STANDARD_MIN_CREDITS or max_credits > STANDARD_MAX_CREDITS:
+                raise ValueError("max_credits must be between 240 and 115,200 for standard.")
 
     def _validate_idempotency_key(self, key: str) -> None:
         try:
-            uuid.UUID(key)
+            parsed = uuid.UUID(key)
         except ValueError as exc:
             raise ValueError("idempotency_key must be a valid UUID.") from exc
+        if parsed.version != 4:
+            raise ValueError("idempotency_key must be a valid UUID v4.")
