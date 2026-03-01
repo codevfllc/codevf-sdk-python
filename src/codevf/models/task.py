@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_UP
 from enum import Enum
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
 from .types import MetadataDict, JSONPrimitive
 
@@ -76,14 +76,30 @@ class TaskResponse:
     max_credits: int
     created_at: str
     credits_used: Optional[int] = None
-    result: Optional[TaskResult] = None
+    result: Optional[Union[TaskResult, Dict[str, Any]]] = None
+    response_schema: Optional[Dict[str, Any]] = None
 
     @classmethod
     def from_payload(cls, payload: Dict[str, Any]) -> "TaskResponse":
         mode_value = str(payload.get("mode", ServiceMode.STANDARD.value))
         mode = ServiceMode.validate(mode_value)
         result_payload = payload.get("result")
-        result = TaskResult.from_payload(result_payload) if isinstance(result_payload, dict) else None
+        response_schema = payload.get("responseSchema")
+        
+        result: Optional[Union[TaskResult, Dict[str, Any]]] = None
+        if isinstance(result_payload, dict):
+            # If a responseSchema was used, the result is ALWAYS treated as a raw dict
+            # matching that schema, even if it contains keys like "message".
+            if response_schema is not None:
+                result = result_payload
+            # Otherwise, check if it looks like a standard TaskResult
+            elif "message" in result_payload and "deliverables" in result_payload:
+                result = TaskResult.from_payload(result_payload)
+            else:
+                # Fallback for structured output if responseSchema wasn't returned in payload
+                # but the shape doesn't match TaskResult.
+                result = result_payload
+                
         return cls(
             id=str(payload["id"]),
             status=str(payload["status"]),
@@ -92,6 +108,7 @@ class TaskResponse:
             created_at=str(payload["createdAt"]),
             credits_used=payload.get("creditsUsed"),
             result=result,
+            response_schema=response_schema,
         )
 
 
@@ -105,6 +122,7 @@ class TaskCreatePayload:
     tag_id: Optional[int] = None
     idempotency_key: Optional[str] = None
     attachments: Optional[List[Dict[str, Any]]] = None
+    response_schema: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         payload: Dict[str, Any] = {
@@ -122,5 +140,7 @@ class TaskCreatePayload:
             payload["idempotencyKey"] = self.idempotency_key
         if self.attachments:
             payload["attachments"] = self.attachments
+        if self.response_schema is not None:
+            payload["responseSchema"] = self.response_schema
 
         return payload

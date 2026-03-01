@@ -19,6 +19,7 @@ from .exceptions import (
     InsufficientCreditsError,
     InvalidMetadataError,
     InvalidModeError,
+    InvalidSchemaError,
     InvalidTagError,
     MaxCreditsExceededError,
     NotFoundError,
@@ -43,6 +44,7 @@ ERROR_CODE_EXCEPTION_MAP: Mapping[str, type[APIError]] = {
     "attachment_too_large": AttachmentTooLargeError,
     "idempotency_conflict": IdempotencyConflictError,
     "insufficient_credits": InsufficientCreditsError,
+    "invalid_schema": InvalidSchemaError,
     "token_expired": AuthenticationError,
     "rate_limit_exceeded": RateLimitError,
 }
