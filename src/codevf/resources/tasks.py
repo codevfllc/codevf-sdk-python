@@ -42,6 +42,7 @@ class Tasks:
         idempotency_key: Optional[str] = None,
         attachments: Optional[Sequence[Mapping[str, Any]]] = None,
         tag_id: Optional[int] = None,
+        response_schema: Optional[Dict[str, Any]] = None,
     ) -> TaskResponse:
         """
         Submit a new task request.
@@ -55,6 +56,7 @@ class Tasks:
             idempotency_key: Optional UUID v4 to deduplicate submissions.
             attachments: File attachments (JSON-compatible dicts).
             tag_id: Expert-level tag ID to control cost multiplier.
+            response_schema: Optional JSON Schema for structured output.
 
         Returns:
             A `TaskResponse` wrapping the server payload.
@@ -84,6 +86,7 @@ class Tasks:
             tag_id=tag_id,
             idempotency_key=idempotency_key,
             attachments=normalized_attachments or None,
+            response_schema=response_schema,
         )
 
         response = cast(Dict[str, Any], self._client.post("tasks/create", data=payload.to_dict()))

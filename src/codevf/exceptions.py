@@ -87,6 +87,11 @@ class InsufficientCreditsError(APIError):
     pass
 
 
+class InvalidSchemaError(APIError):
+    """Raised when the provided responseSchema is invalid JSON Schema."""
+    pass
+
+
 class PayloadTooLargeError(APIError):
     """Raised when the JSON body exceeds 150KB."""
     pass
